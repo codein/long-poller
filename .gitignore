@@ -1,2 +1,3 @@
 *.py[cod]
 config/creds.py
+config/pull_requests.csv
