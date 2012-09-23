@@ -8,6 +8,8 @@ import requests
 from config.creds import default
 
 #TODO(codein) 
+#TODO(codein) introduce logging 
+#TODO(codein) build a executable 
 #TODO(codein) notify-send noification 
 #TODO(codein) notofiction with hyperlink to pullrequest 
 #TODO(codein) ubuntu refactor notification logic from polling logic  
@@ -15,29 +17,31 @@ from config.creds import default
 
 
 PING_FREQUENCY = 10 # seconds
-pull_requests = [{'repo':'vcd_extensions' , 'pull_request_number': 4}]
-
 
 class Check:
     def __init__(self):
         self.ind = appindicator.Indicator("github-indicator",
                                            "",
                                            appindicator.CATEGORY_COMMUNICATIONS)
-        self.ind.set_icon_theme_path("/home/codein/Desktop/icon")
+        self.ind.set_icon_theme_path("icon")
         self.ind.set_icon("github_blue_white_cat_32")
         self.ind.set_status(appindicator.STATUS_ACTIVE)
         self.ind.set_attention_icon("github_white_black_cat_32")
         self.menu_setup()
-        self.pull_requests = pull_requests
+        self.pull_requests = []
         self.last_updated_at_map = {}
         self.ind.set_menu(self.menu)
 
     def menu_setup(self):
         self.menu = gtk.Menu()
-
         self.quit_item = gtk.MenuItem("Quit")
+        self.ignore_item = gtk.MenuItem("Ignore")
         self.quit_item.connect("activate", self.quit)
+        self.ignore_item.connect("activate", self.ignore)
         self.quit_item.show()
+        self.ignore_item.show()
+        
+        self.menu.append(self.ignore_item)
         self.menu.append(self.quit_item)
 
     def main(self):
@@ -48,12 +52,25 @@ class Check:
 
     def quit(self, widget):
         sys.exit(0)
+        
+    def ignore(self, widget):
+        self.ind.set_status(appindicator.STATUS_ACTIVE)
 
     def initialize_pulls(self):
+        file  = open('config/pull_requests.csv')
+        
+        for line in file:
+            part = line.split(',')
+            if len(part) == 2:
+                pull_request = {'repo': part[0].strip(), 'pull_request_number': part[1].strip()}
+                self.pull_requests.append(pull_request)
+            else:
+                print 'Invalid line: %s' % line
+            
         for pull_request in self.pull_requests:
             repo = pull_request['repo']
             pull_request_number = pull_request['pull_request_number']
-            lookup_key = '%s/pulls/%d' % (repo, pull_request_number)
+            lookup_key = '%s/pulls/%s' % (repo, pull_request_number)
             last_updated_at = self.get_last_updated_at(repo, pull_request_number)
             if last_updated_at:   
                 print '%s not found' % lookup_key
@@ -63,7 +80,7 @@ class Check:
         for pull_request in self.pull_requests:
             repo = pull_request['repo']
             pull_request_number = pull_request['pull_request_number']        
-            lookup_key = '%s/pulls/%d' % (repo, pull_request_number)
+            lookup_key = '%s/pulls/%s' % (repo, pull_request_number)
             last_updated_at = self.get_last_updated_at(repo, pull_request_number)
             if last_updated_at: 
                 if lookup_key in self.last_updated_at_map:
@@ -81,8 +98,9 @@ class Check:
             return True
 
     def get_last_updated_at(self, repo, pull_request_number):
-        url = 'https://api.github.com/repos/Navisite/%s/pulls/%d/comments' % (repo, pull_request_number)
+        url = 'https://api.github.com/repos/Navisite/%s/pulls/%s/comments' % (repo, pull_request_number)
         creds = default
+        print url
         try:
             request = requests.get(url, auth=creds)
             if request.status_code == requests.codes.ok or request.status_code == requests.codes.created:
