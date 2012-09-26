@@ -84,7 +84,7 @@ class Check:
             last_updated_at = self.get_last_updated_at(repo, pull_request_number)
             if last_updated_at: 
                 if lookup_key in self.last_updated_at_map:
-                    if self.last_updated_at_map[lookup_key] < last_updated_at:
+                    if lookup_key not in self.last_updated_at_map or self.last_updated_at_map[lookup_key] < last_updated_at:
                         print '%s updated' % lookup_key
                         self.last_updated_at_map[lookup_key] = last_updated_at
                         self.ind.set_status(appindicator.STATUS_ATTENTION)
@@ -106,7 +106,10 @@ class Check:
             if request.status_code == requests.codes.ok or request.status_code == requests.codes.created:
                 success = True
                 print pprint.pprint(request.json)
+                if len(request.json) == 0:
+                    return None
                 last_updated_at = max([comment['updated_at'] for comment in request.json])
+                print type(last_updated_at)
                 print '%s updates %s' % (last_updated_at, url)
                 return last_updated_at
             else:
